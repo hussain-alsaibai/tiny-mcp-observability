@@ -2,9 +2,10 @@
 
 > **Tracing, metrics, and span recording for AI agent pipelines — zero dependencies, one file.**
 
-[![Python 3.9+](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://python.org)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Python versions](https://img.shields.io/pypi/pyversions/tiny-mcp-observability.svg)](https://pypi.org/project/tiny-mcp-observability/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Zero Dependencies](https://img.shields.io/badge/dependencies-zero-brightgreen.svg)](tiny_mcp_observability.py)
+[![CI](https://github.com/hussain-alsaibai/tiny-mcp-observability/actions/workflows/ci.yml/badge.svg)](https://github.com/hussain-alsaibai/tiny-mcp-observability/actions)
 
 Every production AI agent needs to answer: *what happened, how long did it take, what did it cost, and where did it fail?*
 
