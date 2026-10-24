@@ -13,5 +13,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-      - run: python -m pytest tiny_mcp_observability.py -v --tb=short
-        || python -c "import tiny_mcp_observability; print('Module imports OK')"
+      - name: Install deps
+        run: pip install pytest
+      - name: Test
+        run: python -m pytest -v --tb=short
