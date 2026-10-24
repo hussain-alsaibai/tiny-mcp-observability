@@ -127,7 +127,12 @@ class Store:
         self._lock = threading.RLock()
         self._traces: dict[str, dict] = {}       # trace_id -> {meta, spans}
         self._spans: dict[str, Span] = {}        # span_id -> Span
-        self._metrics: dict[str, Metric] = defaultdict(Metric)
+        # defaultdict(Metric) called Metric() with no arguments, and
+        # Metric.name is a required field -- so the first end_span() on any
+        # span raised TypeError: Metric.__init__() missing 1 required
+        # positional argument. defaultdict's factory cannot see the key, so
+        # the metric is created explicitly where the name is known.
+        self._metrics: dict[str, Metric] = {}
         self._trace_order: list[str] = []         # FIFO for eviction
         self._max_traces = max_traces
 
@@ -177,7 +182,10 @@ class Store:
                 span.attributes[k] = v
 
             # Record metrics
-            metric = self._metrics[span.name]
+            metric = self._metrics.get(span.name)
+            if metric is None:
+                metric = Metric(name=span.name)
+                self._metrics[span.name] = metric
             metric.record(
                 duration_ms=span.duration_ms,
                 tokens_in=span.input_tokens or 0,
@@ -187,7 +195,10 @@ class Store:
             )
             # LLM-specific metric
             if span.kind == "llm":
-                llm_metric = self._metrics["llm.total"]
+                llm_metric = self._metrics.get("llm.total")
+                if llm_metric is None:
+                    llm_metric = Metric(name="llm.total")
+                    self._metrics["llm.total"] = llm_metric
                 llm_metric.record(
                     duration_ms=span.duration_ms,
                     tokens_in=span.input_tokens or 0,
@@ -270,9 +281,13 @@ class Store:
             for t in traces:
                 all_spans.extend(t.get("spans", []))
 
+            # to_dict() must be used here: Span is a dataclass, so
+            # json.dumps(..., default=str) silently fell back to str(span) and
+            # exported a list of Python reprs instead of JSON objects.
+            payload = [s.to_dict() for s in all_spans]
             if format == "ndjson":
-                return "\n".join(json.dumps(s.to_dict()) for s in all_spans)
-            return json.dumps(all_spans, indent=2, default=str)
+                return "\n".join(json.dumps(d) for d in payload)
+            return json.dumps(payload, indent=2, default=str)
 
     def clear(self):
         with self._lock:
@@ -296,12 +311,35 @@ class Observed:
 
     def __call__(self, fn: Callable) -> Callable:
         import functools
+        import inspect
+        # A coroutine function must be wrapped by an async wrapper. The old
+        # sync wrapper returned the coroutine un-awaited, so the span closed
+        # before the body ever ran and async failures were never recorded
+        # (error_rate stayed 0.0 for every async call).
+        if inspect.iscoroutinefunction(fn):
+            return self._wrap_async(fn)
         @functools.wraps(fn)
         def wrapper(*args, **kwargs):
             name = self.name or fn.__name__
             span_id = self.store.start_span(name, self.kind)
             try:
                 result = fn(*args, **kwargs)
+                self.store.end_span(span_id, status="ok")
+                return result
+            except Exception as e:
+                self.store.end_span(span_id, status="error", error=traceback.format_exc())
+                raise
+        return wrapper
+
+    def _wrap_async(self, async_fn: Callable) -> Callable:
+        """Build an async wrapper. Kept sync so __call__ can return it."""
+        import functools
+        @functools.wraps(async_fn)
+        async def wrapper(*args, **kwargs):
+            name = self.name or async_fn.__name__
+            span_id = self.store.start_span(name, self.kind)
+            try:
+                result = await async_fn(*args, **kwargs)
                 self.store.end_span(span_id, status="ok")
                 return result
             except Exception as e:
