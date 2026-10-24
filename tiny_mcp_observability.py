@@ -17,10 +17,7 @@ import time
 import uuid
 import threading
 import traceback
-import statistics
-from datetime import datetime, timezone
-from typing import Any, Callable, TypedDict
-from collections import defaultdict
+from typing import Any, Callable
 from dataclasses import dataclass, field, asdict
 from enum import Enum
 
@@ -326,7 +323,7 @@ class Observed:
                 result = fn(*args, **kwargs)
                 self.store.end_span(span_id, status="ok")
                 return result
-            except Exception as e:
+            except Exception:
                 self.store.end_span(span_id, status="error", error=traceback.format_exc())
                 raise
         return wrapper
@@ -342,7 +339,7 @@ class Observed:
                 result = await async_fn(*args, **kwargs)
                 self.store.end_span(span_id, status="ok")
                 return result
-            except Exception as e:
+            except Exception:
                 self.store.end_span(span_id, status="error", error=traceback.format_exc())
                 raise
         return wrapper
@@ -357,7 +354,7 @@ class Observed:
                 result = await async_fn(*args, **kwargs)
                 self.store.end_span(span_id, status="ok")
                 return result
-            except Exception as e:
+            except Exception:
                 self.store.end_span(span_id, status="error", error=traceback.format_exc())
                 raise
         return wrapper

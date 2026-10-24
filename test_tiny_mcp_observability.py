@@ -168,7 +168,7 @@ class TestStore:
     def test_export_spans_ndjson(self, store):
         sid = store.start_span("op")
         store.end_span(sid)
-        lines = [l for l in store.export_spans(format="ndjson").splitlines() if l]
+        lines = [ln for ln in store.export_spans(format="ndjson").splitlines() if ln]
         assert len(lines) == 1
         assert json.loads(lines[0])["name"] == "op"
 
