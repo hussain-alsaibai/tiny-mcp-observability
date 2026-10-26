@@ -12,6 +12,8 @@ Use as:
 MIT License. https://github.com/hussain-alsaibai/tiny-mcp-observability
 """
 
+from __future__ import annotations
+
 import json
 import time
 import uuid
